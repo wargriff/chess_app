@@ -1,26 +1,28 @@
 """Configuration visuelle et paramètres du jeu."""
 
 BOARD_SIZE = 8
-WINDOW_WIDTH = 1180
-WINDOW_HEIGHT = 860
-BOARD_PIXEL_SIZE = 600
-SIDEBAR_WIDTH = 300
-MARGIN = 40
-HUD_HEIGHT = 110
+WINDOW_WIDTH = 1240
+WINDOW_HEIGHT = 880
+BOARD_PIXEL_SIZE = 620
+SIDEBAR_WIDTH = 340
+MARGIN = 36
+HUD_HEIGHT = 118
 FRAME_PADDING = 24
-SIDEBAR_X = WINDOW_WIDTH - SIDEBAR_WIDTH - 16
-SIDEBAR_Y = MARGIN
-SIDEBAR_INNER = SIDEBAR_WIDTH - 24
+SIDEBAR_X = WINDOW_WIDTH - SIDEBAR_WIDTH - 12
+SIDEBAR_Y = 28
+SIDEBAR_INNER = SIDEBAR_WIDTH - 28
 
-SELECT_COLOR = (186, 202, 68, 120)
-MOVE_HINT_COLOR = (106, 135, 77, 120)
-CHECK_COLOR = (220, 53, 69, 140)
-BACKGROUND = (15, 15, 15)
-PANEL_BG = (22, 22, 26)
-TEXT_COLOR = (230, 230, 230)
+SELECT_COLOR = (186, 202, 68, 100)
+MOVE_HINT_COLOR = (0, 230, 118, 90)
+CHECK_COLOR = (220, 53, 69, 130)
+BACKGROUND = (12, 14, 18)
+PANEL_BG = (20, 22, 28)
+TEXT_COLOR = (236, 238, 242)
 ACCENT = (0, 230, 118)
-MUTED = (160, 160, 160)
-ACTIVE = (0, 180, 90)
+ACCENT_SOFT = (0, 180, 95)
+MUTED = (130, 138, 155)
+ACTIVE = (0, 200, 105)
+CARD_BG = (28, 30, 36)
 
 FPS = 60
 AI_DEPTH = 3
@@ -32,9 +34,10 @@ MOVE_ANIM_MS = 220
 SELECT_PULSE_SPEED = 5.5
 
 PIECE_SETS = [
-    {"id": "staunton", "label": "Staunton"},
-    {"id": "neo", "label": "Neo"},
-    {"id": "gold", "label": "Or"},
+    {"id": "staunton", "label": "Staunton", "desc": "Classique 3D"},
+    {"id": "alpha", "label": "Alpha", "desc": "Flat moderne"},
+    {"id": "merida", "label": "Merida", "desc": "Tournoi"},
+    {"id": "pixel", "label": "Pixel", "desc": "Retro 8-bit"},
 ]
 
 BOARD_THEMES = [

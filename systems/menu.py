@@ -12,9 +12,9 @@ class MainMenu:
     def _build_options(self) -> list[tuple[str, pygame.Rect]]:
         center_x = WINDOW_WIDTH // 2
         return [
-            ("Joueur vs Joueur", pygame.Rect(center_x - 180, 240, 360, 54)),
-            ("Joueur vs IA (Stockfish)", pygame.Rect(center_x - 180, 310, 360, 54)),
-            ("Quitter", pygame.Rect(center_x - 180, 380, 360, 54)),
+            ("Joueur vs Joueur", pygame.Rect(center_x - 180, 260, 360, 54)),
+            ("Joueur vs IA (Stockfish)", pygame.Rect(center_x - 180, 330, 360, 54)),
+            ("Quitter", pygame.Rect(center_x - 180, 400, 360, 54)),
         ]
 
     def handle_click(self, pos: tuple[int, int]) -> str | None:

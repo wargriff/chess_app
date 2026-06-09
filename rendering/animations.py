@@ -31,10 +31,12 @@ class MoveAnimation:
         from_pos: tuple[float, float],
         to_pos: tuple[float, float],
         capture: bool,
+        captured_symbol: str | None = None,
         duration_ms: int = MOVE_ANIM_MS,
     ) -> None:
         self.move = move
         self.piece_symbol = piece_symbol
+        self.captured_symbol = captured_symbol
         self.from_pos = from_pos
         self.to_pos = to_pos
         self.capture = capture
@@ -87,8 +89,11 @@ class AnimationManager:
         from_pos: tuple[float, float],
         to_pos: tuple[float, float],
         capture: bool,
+        captured_symbol: str | None = None,
     ) -> None:
-        self.move_anim = MoveAnimation(move, piece_symbol, from_pos, to_pos, capture)
+        self.move_anim = MoveAnimation(
+            move, piece_symbol, from_pos, to_pos, capture, captured_symbol
+        )
 
     def cancel(self) -> None:
         self.move_anim = None
