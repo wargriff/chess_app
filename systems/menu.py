@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pygame
 
-from config.settings import ELO_LEVELS, WINDOW_WIDTH
+from config.settings import WINDOW_WIDTH
 
 
 class MainMenu:
@@ -21,42 +21,6 @@ class MainMenu:
         for label, rect in self.options:
             if rect.collidepoint(pos):
                 return label
-        return None
-
-    def get_options(self) -> list[tuple[str, pygame.Rect]]:
-        return self.options
-
-
-class EloMenu:
-    def __init__(self) -> None:
-        self.options = self._build_options()
-
-    def _build_options(self) -> list[tuple[str, pygame.Rect]]:
-        center_x = WINDOW_WIDTH // 2
-        options: list[tuple[str, pygame.Rect]] = []
-        start_y = 210
-        width = 360
-        height = 48
-        gap = 12
-
-        for index, level in enumerate(ELO_LEVELS):
-            label = f"{level['label']} — {level['elo']} ELO"
-            rect = pygame.Rect(center_x - width // 2, start_y + index * (height + gap), width, height)
-            options.append((label, rect))
-        options.append(("Retour", pygame.Rect(center_x - width // 2, start_y + len(ELO_LEVELS) * (height + gap) + 16, width, height)))
-        return options
-
-    def handle_click(self, pos: tuple[int, int]) -> str | None:
-        for label, rect in self.options:
-            if rect.collidepoint(pos):
-                return label
-        return None
-
-    def get_level_from_label(self, label: str) -> dict | None:
-        for level in ELO_LEVELS:
-            expected = f"{level['label']} — {level['elo']} ELO"
-            if label == expected:
-                return level
         return None
 
     def get_options(self) -> list[tuple[str, pygame.Rect]]:

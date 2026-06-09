@@ -7,13 +7,13 @@ import sys
 
 import pygame
 
-from config.settings import DEFAULT_ELO, FPS, WINDOW_HEIGHT, WINDOW_WIDTH
+from config.settings import DEFAULT_BOARD_THEME, DEFAULT_ELO, FPS, WINDOW_HEIGHT, WINDOW_WIDTH
 from core.game import GameSession
 from rendering.render import ChessRenderer
-from systems.menu import EloMenu, MainMenu, PauseMenu
+from systems.menu import MainMenu, PauseMenu
+from systems.sidebar import GameSidebar
 
 MENU = "menu"
-ELO_SELECT = "elo_select"
 PLAY = "play"
 PAUSE = "pause"
 
@@ -26,6 +26,13 @@ def build_buttons() -> dict[str, pygame.Rect]:
     }
 
 
+def build_mode_label(vs_ai: bool, elo: int, level_label: str | None = None) -> str:
+    if not vs_ai:
+        return "Mode : 2 joueurs"
+    name = level_label or f"{elo} ELO"
+    return f"Mode : vs IA — {name}"
+
+
 def main() -> None:
     os.environ.setdefault("SDL_AUDIODRIVER", "directsound")
     pygame.init()
@@ -36,15 +43,17 @@ def main() -> None:
 
     renderer = ChessRenderer(screen)
     main_menu = MainMenu()
-    elo_menu = EloMenu()
     pause_menu = PauseMenu()
+    sidebar = GameSidebar()
     buttons = build_buttons()
 
     state = MENU
     session: GameSession | None = None
     mode_label = ""
+    board_theme = DEFAULT_BOARD_THEME
     selected_elo = DEFAULT_ELO
     selected_skill = 8
+    selected_level_label = "Club"
 
     running = True
     try:
@@ -61,8 +70,6 @@ def main() -> None:
                         state = PAUSE
                     elif state == PAUSE:
                         state = PLAY
-                    elif state == ELO_SELECT:
-                        state = MENU
                     continue
 
                 if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
@@ -74,29 +81,18 @@ def main() -> None:
                     choice = main_menu.handle_click(pos)
                     if choice == "Joueur vs Joueur":
                         session = GameSession(vs_ai=False)
-                        mode_label = "Mode : 2 joueurs"
+                        sidebar.sync_from_session(board_theme, selected_elo, selected_skill, False)
+                        mode_label = build_mode_label(False, selected_elo)
+                        renderer.set_board_theme(board_theme)
                         state = PLAY
                     elif choice == "Joueur vs IA (Stockfish)":
-                        state = ELO_SELECT
+                        session = GameSession(vs_ai=True, elo=selected_elo, skill=selected_skill)
+                        sidebar.sync_from_session(board_theme, selected_elo, selected_skill, True)
+                        mode_label = build_mode_label(True, selected_elo, selected_level_label)
+                        renderer.set_board_theme(board_theme)
+                        state = PLAY
                     elif choice == "Quitter":
                         running = False
-
-                elif state == ELO_SELECT:
-                    choice = elo_menu.handle_click(pos)
-                    if choice == "Retour":
-                        state = MENU
-                    elif choice:
-                        level = elo_menu.get_level_from_label(choice)
-                        if level:
-                            selected_elo = level["elo"]
-                            selected_skill = level["skill"]
-                            session = GameSession(
-                                vs_ai=True,
-                                elo=selected_elo,
-                                skill=selected_skill,
-                            )
-                            mode_label = f"Mode : vs IA — {level['label']} ({selected_elo} ELO)"
-                            state = PLAY
 
                 elif state == PAUSE:
                     choice = pause_menu.handle_click(pos)
@@ -122,6 +118,21 @@ def main() -> None:
                         session.undo_move()
                         continue
 
+                    if sidebar.contains(pos):
+                        action = sidebar.handle_click(pos)
+                        if action:
+                            kind, value = action
+                            if kind == "board":
+                                board_theme = value
+                                renderer.set_board_theme(board_theme)
+                            elif kind == "elo" and session.vs_ai:
+                                selected_elo = value["elo"]
+                                selected_skill = value["skill"]
+                                selected_level_label = value["label"]
+                                session.set_elo_level(selected_elo, selected_skill)
+                                mode_label = build_mode_label(True, selected_elo, selected_level_label)
+                        continue
+
                     square_coords = renderer.pixel_to_square(pos)
                     if square_coords is None:
                         continue
@@ -134,13 +145,7 @@ def main() -> None:
                 renderer.draw_menu_overlay(
                     "Chess App",
                     main_menu.get_options(),
-                    "Plateau graphique • Stockfish • Niveaux ELO",
-                )
-            elif state == ELO_SELECT:
-                renderer.draw_menu_overlay(
-                    "Choisir le niveau ELO",
-                    elo_menu.get_options(),
-                    "Stockfish adapte sa force au niveau sélectionné",
+                    "Plateau et ELO modifiables pendant la partie",
                 )
             elif state == PAUSE:
                 if session:
@@ -150,6 +155,7 @@ def main() -> None:
                         session.legal_targets,
                         session.last_move,
                     )
+                    renderer.draw_sidebar(sidebar)
                     renderer.draw_hud(
                         session.message or session.board.status_text(),
                         mode_label,
@@ -164,6 +170,7 @@ def main() -> None:
                     session.legal_targets,
                     session.last_move,
                 )
+                renderer.draw_sidebar(sidebar)
                 renderer.draw_hud(
                     session.message or session.board.status_text(),
                     mode_label,

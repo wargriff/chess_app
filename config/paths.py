@@ -24,3 +24,7 @@ STOCKFISH_CANDIDATES = [
 
 def theme_dir(theme_id: str) -> str:
     return os.path.join(BOARD_DIR, theme_id)
+
+
+def piece_set_dir(set_id: str) -> str:
+    return os.path.join(PIECES_DIR, set_id)

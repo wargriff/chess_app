@@ -26,6 +26,16 @@ FPS = 60
 AI_DEPTH = 3
 DEFAULT_ELO = 1200
 DEFAULT_BOARD_THEME = "classic"
+DEFAULT_PIECE_SET = "staunton"
+
+MOVE_ANIM_MS = 220
+SELECT_PULSE_SPEED = 5.5
+
+PIECE_SETS = [
+    {"id": "staunton", "label": "Staunton"},
+    {"id": "neo", "label": "Neo"},
+    {"id": "gold", "label": "Or"},
+]
 
 BOARD_THEMES = [
     {
