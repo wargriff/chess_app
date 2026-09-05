@@ -56,14 +56,20 @@ class GameSession:
         self.message = ""
         self.ai_thinking = False
         self._redo_stack: list[chess.Move] = []
+        self._clock_snapshots: list[tuple[float, float]] = []
         self._pending_request_id: int | None = None
+        self.player_name = player_name
         self.white_player = self._make_white_player(player_name)
         self.black_player = self._make_black_player(player_name)
         if self.clock.enabled:
             self.clock.start()
-        if mode in (GameMode.PVE, GameMode.EVE) and not self.engine.available:
-            self.engine.start()
+        if mode in (GameMode.PVE, GameMode.EVE):
+            if not self.engine.available:
+                self.engine.start()
+            # Toujours synchroniser le niveau affiché / réel
             self.engine.configure(elo, skill)
+            if not self.engine.available:
+                self.message = self.engine.error or "Stockfish indisponible"
         if mode == GameMode.EVE or (mode == GameMode.PVE and not self.human_is_white):
             self._request_engine_move()
 
@@ -110,6 +116,7 @@ class GameSession:
         self.pending_ai_move = None
         self.pending_promotion = None
         self._redo_stack.clear()
+        self._clock_snapshots.clear()
         self._pending_request_id = None
         self.ai_thinking = False
         self.message = ""
@@ -158,7 +165,7 @@ class GameSession:
             self.white_player.elo = elo
         if self.black_player.is_engine:
             self.black_player.elo = elo
-        self.message = f"Niveau IA : {elo} ELO"
+        self.message = f"Niveau IA : {self.engine.strength_label} ({elo})"
 
     def update_clock(self, dt: float, paused: bool) -> None:
         if paused or self.board.is_game_over() or self.clock.flagged_white is not None:
@@ -194,6 +201,7 @@ class GameSession:
         if move.promotion and piece is not None:
             symbol = chess.Piece(move.promotion, piece.color).symbol()
         mover_white = piece.color == chess.WHITE if piece else True
+        self._clock_snapshots.append((self.clock.white_seconds, self.clock.black_seconds))
         self.board.push(move)
         self.clock.on_move(mover_white)
         self.last_move = move
@@ -202,8 +210,44 @@ class GameSession:
         self.last_captured_symbol = captured_symbol
         self.last_captured_square = captured_square
         self.clear_selection()
-        self.message = self.board.status_text()
+        self.message = self.turn_status()
         return symbol, capture, captured_symbol
+
+    def turn_status(self) -> str:
+        if self.board.is_game_over() or self.clock.flagged_white is not None:
+            return self.board.status_text()
+        if self.ai_thinking:
+            return "Stockfish réfléchit..."
+        if self.mode == GameMode.PVE:
+            human_turn = self.board.turn() == (chess.WHITE if self.human_is_white else chess.BLACK)
+            if human_turn:
+                base = "Votre tour"
+            else:
+                base = "Tour de Stockfish"
+            if self.board.is_check():
+                return f"{base} — Échec"
+            return base
+        if self.mode == GameMode.EVE:
+            return "Stockfish joue..."
+        return self.board.status_text()
+
+    def can_undo(self) -> bool:
+        return bool(self.board.board.move_stack) and not self.ai_thinking
+
+    def can_redo(self) -> bool:
+        return bool(self._redo_stack) and not self.ai_thinking
+
+    def _undo_one_ply(self) -> None:
+        if not self.board.board.move_stack:
+            return
+        move = self.board.board.peek()
+        self.board.undo()
+        self._redo_stack.append(move)
+        if self._clock_snapshots:
+            white_s, black_s = self._clock_snapshots.pop()
+            self.clock.white_seconds = white_s
+            self.clock.black_seconds = black_s
+            self.clock.flagged_white = None
 
     def _apply_player_move(self, move: chess.Move) -> tuple[str, bool, str | None]:
         self._redo_stack.clear()
@@ -266,7 +310,7 @@ class GameSession:
     def _request_engine_move(self) -> None:
         if not self.engine.available:
             self.ai_thinking = False
-            self.message = self.engine.error or "Stockfish indisponible — selectionnez le moteur"
+            self.message = self.engine.error or "Stockfish indisponible — vérifiez le moteur"
             return
         self.ai_thinking = True
         self.message = "Stockfish réfléchit..."
@@ -303,19 +347,20 @@ class GameSession:
             self.ai_thinking = False
             self._pending_request_id = None
             if result.error or result.move is None:
-                self.message = f"Erreur moteur: {result.error or 'bestmove manquant'}"
+                self.message = f"Erreur moteur : {result.error or 'bestmove manquant'}"
                 continue
             if not self.board.is_legal(result.move):
                 self.message = f"Coup IA invalide: {result.move.uci()}"
                 continue
             self.apply_move(result.move)
-            self.message = self.board.status_text()
+            self.message = "Stockfish joue..." if self.mode == GameMode.EVE else self.turn_status()
             if self.mode == GameMode.EVE and not self.board.is_game_over():
                 self._request_engine_move()
             played = result.move
         # Ne pas écraser ai_thinking si une requête PLAY est encore en cours
         if self._pending_request_id is not None:
             self.ai_thinking = True
+            self.message = "Stockfish réfléchit..."
         elif not self.engine.thinking:
             # laisser False sauf si on vient de relancer EVE
             pass
@@ -329,9 +374,7 @@ class GameSession:
         while len(self.board.board.move_stack) > ply:
             if not self.board.board.move_stack:
                 break
-            move = self.board.board.peek()
-            self.board.undo()
-            self._redo_stack.append(move)
+            self._undo_one_ply()
         self.clear_selection()
         self.clear_promotion()
         self.last_move = self.board.board.peek() if self.board.board.move_stack else None
@@ -339,7 +382,7 @@ class GameSession:
         self.last_move_capture = False
         self.last_captured_symbol = None
         self.last_captured_square = None
-        self.message = self.board.status_text()
+        self.message = self.turn_status()
 
     def undo_move(self) -> None:
         if self.ai_thinking:
@@ -349,16 +392,14 @@ class GameSession:
         for _ in range(plies):
             if not self.board.board.move_stack:
                 break
-            move = self.board.board.peek()
-            self.board.undo()
-            self._redo_stack.append(move)
+            self._undo_one_ply()
         self.clear_selection()
         self.last_move = self.board.board.peek() if self.board.board.move_stack else None
         self.last_move_piece = None
         self.last_move_capture = False
         self.last_captured_symbol = None
         self.last_captured_square = None
-        self.message = self.board.status_text()
+        self.message = self.turn_status()
 
     def redo_move(self) -> None:
         if self.ai_thinking or not self._redo_stack:
@@ -370,7 +411,12 @@ class GameSession:
                 engine_move = self._redo_stack.pop()
                 if self.board.is_legal(engine_move):
                     self.apply_move(engine_move)
-        self.message = self.board.status_text()
+                else:
+                    self._redo_stack.append(engine_move)
+        else:
+            self._redo_stack.append(move)
+            return
+        self.message = self.turn_status()
 
     def export_fen(self) -> str:
         return self.board.fen()
@@ -379,7 +425,8 @@ class GameSession:
         self.board.set_fen(fen)
         self.clear_selection()
         self._redo_stack.clear()
-        self.message = self.board.status_text()
+        self._clock_snapshots.clear()
+        self.message = self.turn_status()
 
     def export_pgn(self) -> str:
         return self.board.export_pgn(
@@ -389,3 +436,80 @@ class GameSession:
 
     def move_list_san(self) -> list[str]:
         return self.board.san_history()
+
+    def to_save_data(self, board_theme: str = "", piece_set: str = "") -> "GameSaveData":
+        from src.services.save_manager import GameSaveData
+
+        result = "*"
+        if self.clock.flagged_white is not None:
+            result = "0-1" if self.clock.flagged_white else "1-0"
+        elif self.board.is_game_over():
+            result = self.board.board.result(claim_draw=True)
+        return GameSaveData(
+            mode=self.mode.name,
+            moves=[m.uci() for m in self.board.board.move_stack],
+            white_name=self.white_player.name,
+            black_name=self.black_player.name,
+            human_is_white=self.human_is_white,
+            elo=self.elo,
+            skill=self.skill,
+            time_minutes=self.clock.minutes,
+            time_increment=self.clock.increment,
+            white_seconds=self.clock.white_seconds,
+            black_seconds=self.clock.black_seconds,
+            clock_enabled=self.clock.enabled,
+            result=result,
+            message=self.message,
+            board_theme=board_theme,
+            piece_set=piece_set,
+        )
+
+    def restore_from_save(self, data: "GameSaveData", resume_engine: bool = True) -> None:
+        """Rejoue les coups et restaure horloges / métadonnées."""
+        self.ai_thinking = False
+        self._pending_request_id = None
+        self.clear_selection()
+        self.clear_promotion()
+        self._redo_stack.clear()
+        self._clock_snapshots.clear()
+        self.board.reset()
+        self.elo = int(data.elo)
+        self.skill = data.skill
+        self.human_is_white = bool(data.human_is_white)
+        self.player_name = data.white_name if self.human_is_white else data.black_name
+        self.white_player = self._make_white_player(data.white_name)
+        self.black_player = self._make_black_player(data.black_name)
+        if not self.white_player.is_engine:
+            self.white_player.name = data.white_name
+        if not self.black_player.is_engine:
+            self.black_player.name = data.black_name
+        if self.white_player.is_engine:
+            self.white_player.elo = self.elo
+        if self.black_player.is_engine:
+            self.black_player.elo = self.elo
+
+        self.clock.set_control(int(data.time_minutes), int(data.time_increment))
+        for uci in data.moves:
+            try:
+                move = chess.Move.from_uci(uci)
+            except ValueError:
+                break
+            if not self.board.is_legal(move):
+                break
+            self.apply_move(move)
+
+        if data.clock_enabled:
+            self.clock.white_seconds = float(data.white_seconds)
+            self.clock.black_seconds = float(data.black_seconds)
+            self.clock.enabled = True
+            if not self.board.is_game_over():
+                self.clock.start()
+        else:
+            self.clock.enabled = False
+            self.clock.running = False
+
+        self.message = data.message or self.turn_status()
+        if resume_engine and self.mode in (GameMode.PVE, GameMode.EVE) and not self.board.is_game_over():
+            self.engine.configure(self.elo, self.skill)
+            if self._engine_to_move():
+                self._request_engine_move()

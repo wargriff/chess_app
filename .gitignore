@@ -1,3 +1,9 @@
+data/
+!data/.gitkeep
+logs/
+!logs/.gitkeep
+saves/
+!saves/.gitkeep
 .venv/
 .idea/
 __pycache__/
@@ -11,3 +17,5 @@ stockfish.exe
 build/
 dist/
 *.spec
+.env
+*.pem

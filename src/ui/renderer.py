@@ -71,17 +71,20 @@ class ChessRenderer:
         self.assets.warm_board(sq, layout.piece_draw_size(), layout.piece_draw_size(True, 1.04))
 
     def _rebuild_fonts(self) -> None:
-        s = self.layout.effective_scale
-        self.font = pygame.font.SysFont("Segoe UI", max(14, int(20 * s)))
-        self.small_font = pygame.font.SysFont("Segoe UI", max(12, int(15 * s)))
-        self.chip_font = pygame.font.SysFont("Segoe UI Semibold", max(14, int(18 * s)), bold=True)
-        self.tab_font = pygame.font.SysFont("Segoe UI Semibold", max(13, int(16 * s)), bold=True)
-        self.tab_label_font = pygame.font.SysFont("Segoe UI", max(10, int(12 * s)))
-        self.hud_font = pygame.font.SysFont("Segoe UI Semibold", max(18, int(28 * s)), bold=True)
-        self.title_font = pygame.font.SysFont("Cambria", max(24, int(36 * s)), bold=True)
-        self.subtitle_font = pygame.font.SysFont("Cambria", max(16, int(22 * s)), bold=True)
-        self.clock_font = pygame.font.SysFont("Segoe UI", max(26, int(40 * s)), bold=True)
-        self.clock_small_font = pygame.font.SysFont("Segoe UI Semibold", max(12, int(16 * s)), bold=True)
+        L = self.layout
+        self.font = pygame.font.SysFont("Segoe UI", L.font_size(18, min_size=13, max_size=24))
+        self.small_font = pygame.font.SysFont("Segoe UI", L.font_size(14, min_size=11, max_size=18))
+        self.chip_font = pygame.font.SysFont("Segoe UI Semibold", L.font_size(16, min_size=12, max_size=20), bold=True)
+        self.tab_font = pygame.font.SysFont("Segoe UI Semibold", L.font_size(14, min_size=11, max_size=18), bold=True)
+        self.tab_label_font = pygame.font.SysFont("Segoe UI", L.font_size(11, min_size=9, max_size=14))
+        self.hud_font = pygame.font.SysFont("Segoe UI Semibold", L.font_size(22, min_size=16, max_size=30), bold=True)
+        self.title_font = pygame.font.SysFont("Cambria", L.font_size(40, min_size=22, max_size=56), bold=True)
+        self.subtitle_font = pygame.font.SysFont("Segoe UI", L.font_size(18, min_size=13, max_size=24))
+        self.clock_font = pygame.font.SysFont("Segoe UI", L.font_size(32, min_size=18, max_size=42), bold=True)
+        self.clock_small_font = pygame.font.SysFont("Segoe UI Semibold", L.font_size(16, min_size=12, max_size=20), bold=True)
+        self.brand_font = pygame.font.SysFont("Cambria", L.font_size(22, min_size=14, max_size=28), bold=True)
+        self.nav_font = pygame.font.SysFont("Segoe UI Semibold", L.font_size(14, min_size=10, max_size=17), bold=True)
+        self.mono_font = pygame.font.SysFont("Consolas", L.font_size(14, min_size=11, max_size=17))
 
     def apply_layout(self, layout: UILayout) -> None:
         self.layout = layout
@@ -553,6 +556,28 @@ class ChessRenderer:
             text = self.chip_font.render("Reinitialiser", True, ACCENT if hovered else TEXT_COLOR)
             self.screen.blit(text, text.get_rect(center=reset.center))
 
+        sound = buttons.get("toggle_sound")
+        if sound:
+            hovered = sidebar.is_hovered("display", "toggle_sound")
+            on = getattr(sidebar, "sounds_enabled", True)
+            label = f"Sons : {'ON' if on else 'OFF'}"
+            fill = (28, 52, 40) if hovered or on else (32, 34, 40)
+            pygame.draw.rect(self.screen, fill, sound, border_radius=self.layout.s(10))
+            pygame.draw.rect(self.screen, ACCENT if (hovered or on) else (60, 64, 74), sound, 2, border_radius=self.layout.s(10))
+            text = self.chip_font.render(label, True, ACCENT if on else TEXT_COLOR)
+            self.screen.blit(text, text.get_rect(center=sound.center))
+
+        anim = buttons.get("toggle_anim")
+        if anim:
+            hovered = sidebar.is_hovered("display", "toggle_anim")
+            on = getattr(sidebar, "animations_enabled", True)
+            label = f"Animations : {'ON' if on else 'OFF'}"
+            fill = (28, 52, 40) if hovered or on else (32, 34, 40)
+            pygame.draw.rect(self.screen, fill, anim, border_radius=self.layout.s(10))
+            pygame.draw.rect(self.screen, ACCENT if (hovered or on) else (60, 64, 74), anim, 2, border_radius=self.layout.s(10))
+            text = self.chip_font.render(label, True, ACCENT if on else TEXT_COLOR)
+            self.screen.blit(text, text.get_rect(center=anim.center))
+
     def _draw_board_scrollbar(self, sidebar: GameSidebar, content: pygame.Rect) -> None:
         max_scroll = sidebar.board_scroll_max()
         if max_scroll <= 0:
@@ -639,42 +664,29 @@ class ChessRenderer:
                 self.screen.blit(hint, hint.get_rect(center=content.center))
 
     def draw_loading_screen(self, message: str, progress: float) -> None:
-        self._load_tick += 1
         self.screen.blit(self._bg, (0, 0))
-        draw_ember_particles(self.screen, self._load_tick, count=55)
-        draw_fog_overlay(self.screen, alpha=35)
-
         w, h = self.layout.width, self.layout.height
-        card = pygame.Rect(w // 2 - self.layout.s(320), h // 2 - self.layout.s(140), self.layout.s(640), self.layout.s(280))
-        blit_stone_panel(self.screen, card, border_color=GOLD, inner_glow=True, seed=99)
-        draw_ornate_corners(self.screen, card, GOLD_BRIGHT)
+        card = pygame.Rect(0, 0, min(self.layout.s(520), w - 40), self.layout.s(220))
+        card.center = (w // 2, h // 2)
+        blit_stone_panel(self.screen, card, border_color=GOLD_DIM, inner_glow=True, seed=99)
 
         title = self.title_font.render("Chess Pro D4", True, GOLD_BRIGHT)
-        self.screen.blit(title, title.get_rect(center=(w // 2, card.y + self.layout.s(58))))
-        subtitle = self.small_font.render("Edition D4 — Sanctuaire des Echecs", True, MUTED)
-        self.screen.blit(subtitle, subtitle.get_rect(center=(w // 2, card.y + self.layout.s(96))))
-        draw_gold_accent_line(self.screen, card.y + self.layout.s(112), card.width, self.layout.s(2))
+        self.screen.blit(title, title.get_rect(center=(w // 2, card.y + self.layout.s(48))))
+        subtitle = self.small_font.render("Chargement…", True, MUTED)
+        self.screen.blit(subtitle, subtitle.get_rect(center=(w // 2, card.y + self.layout.s(88))))
 
-        bar_x = card.x + self.layout.s(52)
-        bar_y = card.y + self.layout.s(148)
-        bar_w = card.width - self.layout.s(104)
-        bar_h = self.layout.s(16)
+        bar_x = card.x + self.layout.s(40)
+        bar_y = card.y + self.layout.s(130)
+        bar_w = card.width - self.layout.s(80)
+        bar_h = self.layout.s(10)
         track = pygame.Rect(bar_x, bar_y, bar_w, bar_h)
-        blit_stone_panel(self.screen, track, border_color=GOLD_DIM, seed=55)
+        pygame.draw.rect(self.screen, (32, 30, 28), track, border_radius=4)
         fill_w = max(0, int(bar_w * max(0.0, min(1.0, progress))))
         if fill_w > 0:
-            fill_rect = pygame.Rect(bar_x + 2, bar_y + 2, fill_w - 4, bar_h - 4)
-            glow = pygame.Surface((fill_rect.width, fill_rect.height), pygame.SRCALPHA)
-            for row in range(fill_rect.height):
-                ratio = row / max(fill_rect.height - 1, 1)
-                c = (int(220 * (1 - ratio * 0.4)), int(140 * (1 - ratio * 0.3)), int(40 * (1 - ratio * 0.2)))
-                pygame.draw.line(glow, (*c, 220), (0, row), (fill_rect.width, row))
-            self.screen.blit(glow, fill_rect.topleft)
+            pygame.draw.rect(self.screen, GOLD, pygame.Rect(bar_x, bar_y, fill_w, bar_h), border_radius=4)
 
-        pct = self.chip_font.render(f"{int(progress * 100)}%", True, GOLD_BRIGHT)
-        self.screen.blit(pct, pct.get_rect(midright=(bar_x + bar_w, bar_y - self.layout.s(10))))
-        status = self.font.render(message, True, TEXT_COLOR)
-        self.screen.blit(status, status.get_rect(center=(w // 2, card.y + self.layout.s(210))))
+        status = self.font.render(message[:48], True, TEXT_COLOR)
+        self.screen.blit(status, status.get_rect(center=(w // 2, card.y + self.layout.s(175))))
 
     def _draw_hud_chip(self, rect: pygame.Rect, text: str, accent: bool = False) -> None:
         border = GOLD if accent else GOLD_DIM
@@ -766,58 +778,52 @@ class ChessRenderer:
                 primary=label in ("Pause", "Analyse"),
             )
 
-    def draw_main_menu(self, options: list[tuple[str, pygame.Rect]]) -> None:
-        """Menu principal moderne et epure."""
-        self._load_tick += 1
+    def draw_main_menu(self, options: list[tuple[str, pygame.Rect]], display_labels: dict[str, str] | None = None) -> None:
+        """Accueil premium épuré — sans particules."""
         w, h = self.layout.width, self.layout.height
         self.screen.blit(self._bg, (0, 0))
-        draw_ember_particles(self.screen, self._load_tick, count=28)
-        draw_fog_overlay(self.screen, alpha=28)
 
-        title = self.title_font.render("Chess Pro", True, GOLD_BRIGHT)
-        self.screen.blit(title, title.get_rect(center=(w // 2, self.layout.s(110))))
-        sub = self.small_font.render("D4  ·  Stockfish UCI  ·  Echecs premium", True, MUTED)
-        self.screen.blit(sub, sub.get_rect(center=(w // 2, self.layout.s(150))))
+        title = self.title_font.render(self.layout.brand_title() if self.layout.width < 900 else "Chess Pro D4", True, GOLD_BRIGHT)
+        self.screen.blit(title, title.get_rect(center=(w // 2, max(self.layout.s(80), h // 2 - self.layout.s(200)))))
+        sub = self.subtitle_font.render("Stockfish UCI  ·  Moteur d'échecs professionnel", True, MUTED)
+        self.screen.blit(sub, sub.get_rect(center=(w // 2, max(self.layout.s(120), h // 2 - self.layout.s(155)))))
 
+        display_labels = display_labels or {}
         for label, rect in options:
             hovered = self.hover_button == label
             primary = label == "JOUER CONTRE STOCKFISH"
-            bg = (42, 34, 26) if hovered else (28, 24, 20)
-            border = GOLD_BRIGHT if primary or hovered else (70, 58, 42)
-            pygame.draw.rect(self.screen, bg, rect, border_radius=10)
-            pygame.draw.rect(self.screen, border, rect, width=1, border_radius=10)
-            text = self.chip_font.render(label, True, GOLD_BRIGHT if primary else TEXT_COLOR)
+            secondary = label in ("PARTIES SAUVEGARDEES", "QUITTER")
+            bg = (44, 38, 30) if hovered else (26, 24, 22)
+            border = GOLD if primary or hovered else (55, 50, 44)
+            pygame.draw.rect(self.screen, bg, rect, border_radius=8)
+            pygame.draw.rect(self.screen, border, rect, width=1, border_radius=8)
+            shown = display_labels.get(label, label)
+            color = GOLD_BRIGHT if primary else TEXT_COLOR
+            text = (self.small_font if secondary else self.chip_font).render(shown, True, color)
             self.screen.blit(text, text.get_rect(center=rect.center))
 
     def draw_menu_overlay(self, title: str, options: list[tuple[str, pygame.Rect]], subtitle: str = "") -> None:
-        """Overlay menu (pause) par-dessus la partie."""
+        """Pause moderne — carte sobre."""
         w, h = self.layout.width, self.layout.height
         overlay = pygame.Surface((w, h), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, self.animations.menu_alpha()))
+        overlay.fill((0, 0, 0, min(200, self.animations.menu_alpha())))
         self.screen.blit(overlay, (0, 0))
-        draw_fog_overlay(self.screen, alpha=min(50, self.animations.menu_alpha() // 4))
-        draw_ember_particles(self.screen, pygame.time.get_ticks() // 16, count=35)
-
-        card = pygame.Rect(w // 2 - self.layout.s(300), self.layout.s(64), self.layout.s(600), self.layout.s(150))
-        blit_stone_panel(self.screen, card, border_color=GOLD, inner_glow=True, seed=77)
-        draw_ornate_corners(self.screen, card, GOLD_BRIGHT)
-        draw_gold_accent_line(self.screen, card.bottom - self.layout.s(3), card.width, self.layout.s(2))
 
         title_surf = self.title_font.render(title, True, GOLD_BRIGHT)
-        self.screen.blit(title_surf, title_surf.get_rect(center=(w // 2, card.y + self.layout.s(50))))
+        self.screen.blit(title_surf, title_surf.get_rect(center=(w // 2, h // 2 - self.layout.s(200))))
         if subtitle:
             sub_surf = self.small_font.render(subtitle, True, MUTED)
-            self.screen.blit(sub_surf, sub_surf.get_rect(center=(w // 2, card.y + self.layout.s(92))))
+            self.screen.blit(sub_surf, sub_surf.get_rect(center=(w // 2, h // 2 - self.layout.s(160))))
 
-        pause_icons = {"Reprendre": "▶", "Nouvelle partie": "↻", "Menu principal": "⌂"}
         for label, rect in options:
-            self._draw_hud_action(
-                rect,
-                label,
-                pause_icons.get(label, "•"),
-                hovered=self.hover_button == label,
-                primary=label == "Reprendre",
-            )
+            hovered = self.hover_button == label
+            primary = label == "Reprendre"
+            bg = (48, 40, 28) if primary else ((40, 36, 32) if hovered else (26, 24, 22))
+            border = GOLD if primary or hovered else (55, 50, 44)
+            pygame.draw.rect(self.screen, bg, rect, border_radius=8)
+            pygame.draw.rect(self.screen, border, rect, width=1, border_radius=8)
+            text = self.chip_font.render(label, True, TEXT_COLOR)
+            self.screen.blit(text, text.get_rect(center=rect.center))
 
     def _sorted_promotion_moves(self, moves: list[chess.Move]) -> list[chess.Move]:
         order = {piece: index for index, piece in enumerate(PROMOTION_ORDER)}

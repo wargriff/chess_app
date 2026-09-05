@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Chess Pro D4 — {{CODE}}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
+:root{
+  --bg:#070605; --surf:#12100E; --surf2:#1A1714; --line:#3A342C;
+  --gold:#D4A548; --gold2:#E8C87A; --text:#F0E6D2; --muted:#9A8B78;
+  --ok:#50BE6E; --err:#C85046;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:
+  radial-gradient(1200px 600px at 50% -10%, #1a140c 0%, var(--bg) 55%);
+  color:var(--text);font-family:'DM Sans',system-ui,sans-serif}
+header{
+  padding:14px 18px;background:linear-gradient(180deg,var(--surf2),var(--surf));
+  border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+}
+header h1{margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:1.45rem;
+  color:var(--gold2);letter-spacing:.02em;font-weight:700}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--err);box-shadow:0 0 0 3px rgba(200,80,70,.2)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(80,190,110,.25)}
+#conn{color:var(--muted);font-size:.9rem}
+code{color:var(--gold);letter-spacing:.18em;font-weight:600}
+main{padding:16px 12px 28px;max-width:560px;margin:0 auto}
+.panel{
+  text-align:center;margin-bottom:14px;padding:12px 14px;border-radius:12px;
+  background:rgba(18,16,14,.85);border:1px solid var(--line);
+}
+.panel .names{font-size:.95rem;color:var(--text);font-weight:500}
+.panel .turn{margin-top:6px;font-size:.85rem;color:var(--muted)}
+.panel .turn.you{color:var(--gold2);font-weight:600}
+.board-wrap{
+  width:min(92vw,480px);margin:0 auto;padding:14px;border-radius:16px;
+  background:linear-gradient(145deg,#2a2218,#15110d 40%,#1c1712);
+  border:1px solid #5a4a32;box-shadow:
+    0 0 0 1px rgba(212,165,72,.25),
+    0 18px 40px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(232,200,122,.15);
+}
+.board-frame{position:relative;border-radius:6px;overflow:hidden;
+  box-shadow:inset 0 0 0 2px #8a6d3f}
+#board{
+  width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);
+  grid-template-rows:repeat(8,1fr);user-select:none;background:#1a1410;
+}
+.sq{
+  display:flex;align-items:center;justify-content:center;position:relative;
+  cursor:pointer;
+}
+.sq.l{background:linear-gradient(145deg,#e8d7b8,#d4c19a)}
+.sq.d{background:linear-gradient(145deg,#8b5e3c,#6e482e)}
+.sq.sel{box-shadow:inset 0 0 0 3px var(--gold2)}
+.sq.last{box-shadow:inset 0 0 0 999px rgba(212,165,72,.32)}
+.sq.sel.last{box-shadow:inset 0 0 0 3px var(--gold2), inset 0 0 0 999px rgba(212,165,72,.22)}
+.sq img.piece{
+  width:88%;height:88%;object-fit:contain;pointer-events:none;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));
+  z-index:2;
+}
+.sq .hint{
+  position:absolute;width:28%;height:28%;border-radius:50%;
+  background:rgba(80,40,10,.35);border:2px solid rgba(212,165,72,.7);z-index:1;
+}
+.sq .hint.cap{
+  width:86%;height:86%;border-radius:50%;background:transparent;
+  border:3px solid rgba(200,80,70,.75);box-shadow:inset 0 0 0 999px rgba(200,80,70,.12);
+}
+.coord{
+  position:absolute;font-size:10px;font-weight:600;opacity:.75;z-index:3;
+  text-shadow:0 1px 1px rgba(0,0,0,.35);pointer-events:none;
+}
+.coord.file{right:3px;bottom:2px}
+.coord.rank{left:3px;top:2px}
+.sq.l .coord{color:#5c4030}
+.sq.d .coord{color:#e8d7b8}
+.foot{margin-top:14px;text-align:center;font-size:.78rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Chess Pro D4</h1>
+  <span class="dot" id="dot"></span>
+  <span id="conn">Connexion…</span>
+  <span style="margin-left:auto;font-size:.9rem">Code <code>{{CODE}}</code></span>
+</header>
+<main>
+  <div class="panel">
+    <div class="names" id="players">En attente…</div>
+    <div class="turn" id="status">Connexion WebSocket…</div>
+  </div>
+  <div class="board-wrap">
+    <div class="board-frame">
+      <div id="board"></div>
+    </div>
+  </div>
+  <p class="foot">Pièces premium · plateau bois · sync live</p>
+</main>
+<script>
+const CODE="{{CODE}}";
+const WS_URL=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/room/'+CODE
+  +'?player_id='+Date.now()+'&name='+encodeURIComponent('Joueur 2')+'&role=guest';
+const PIECE_SET='/static/pieces/cburnett/';
+let room=null, myColor=null, selected=null, ws=null;
+
+function pieceSrc(ch){
+  const color = ch===ch.toUpperCase() ? 'w' : 'b';
+  return PIECE_SET + color + ch.toUpperCase() + '.png';
+}
+function parseFen(fen){
+  const map={}; let r=7,f=0;
+  for(const ch of fen.split(' ')[0]){
+    if(ch==='/'){r--;f=0;}
+    else if(/\d/.test(ch)) f+=+ch;
+    else {map[String.fromCharCode(97+f)+(r+1)]=ch; f++;}
+  }
+  return map;
+}
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  if(!room) return;
+  const pieces=parseFen(room.fen);
+  const legal=room.status==='playing' && myColor===room.turn ? (room.legal||[]) : [];
+  const moveTos = selected ? legal.filter(u=>u.startsWith(selected)).map(u=>u.slice(2,4)) : [];
+  const last=room.moves&&room.moves.length? room.moves[room.moves.length-1]:null;
+  const lf=last?last.slice(0,2):null, lt=last?last.slice(2,4):null;
+  const orientWhite=myColor!=='black';
+  const showFiles = orientWhite ? 'abcdefgh' : 'hgfedcba';
+  const showRanks = orientWhite ? '87654321' : '12345678';
+
+  for(let row=0;row<8;row++){
+    for(let col=0;col<8;col++){
+      const file=orientWhite?col:7-col;
+      const rank=orientWhite?7-row:row;
+      const name=String.fromCharCode(97+file)+(rank+1);
+      const light=(file+rank)%2===1;
+      const sq=document.createElement('div');
+      let cls='sq '+(light?'l':'d');
+      if(selected===name) cls+=' sel';
+      if(name===lf||name===lt) cls+=' last';
+      sq.className=cls;
+
+      if(row===7){
+        const c=document.createElement('span');
+        c.className='coord file'; c.textContent=showFiles[col]; sq.appendChild(c);
+      }
+      if(col===0){
+        const c=document.createElement('span');
+        c.className='coord rank'; c.textContent=showRanks[row]; sq.appendChild(c);
+      }
+
+      if(moveTos.includes(name)){
+        const h=document.createElement('div');
+        h.className='hint'+(pieces[name]?' cap':'');
+        sq.appendChild(h);
+      }
+      const p=pieces[name];
+      if(p){
+        const img=document.createElement('img');
+        img.className='piece'; img.alt=p; img.draggable=false; img.src=pieceSrc(p);
+        sq.appendChild(img);
+      }
+      sq.onclick=()=>onTap(name, legal);
+      board.appendChild(sq);
+    }
+  }
+
+  const youPlay = myColor===room.turn && room.status==='playing';
+  document.getElementById('players').textContent=
+    (room.black_name||'Noirs')+'  vs  '+(room.white_name||'Blancs');
+  const st=document.getElementById('status');
+  st.className='turn'+(youPlay?' you':'');
+  st.textContent=
+    room.status==='waiting' ? 'En attente du 2ᵉ joueur… ('+room.players+'/2)' :
+    room.status==='finished' ? 'Partie terminée · '+room.result :
+    (youPlay ? 'À vous de jouer' : 'Tour adverse');
+}
+function onTap(sq, legal){
+  if(!room||room.status!=='playing'||myColor!==room.turn) return;
+  if(!selected){ if(legal.some(u=>u.startsWith(sq))){ selected=sq; render(); } return; }
+  if(selected===sq){ selected=null; render(); return; }
+  const cands=legal.filter(u=>u.startsWith(selected+sq));
+  if(!cands.length){ selected=legal.some(u=>u.startsWith(sq))?sq:null; render(); return; }
+  let uci=cands[0];
+  if(cands.length>1) uci=cands.find(u=>u.endsWith('q'))||uci;
+  selected=null;
+  ws.send(JSON.stringify({type:'move',uci}));
+}
+function connect(){
+  ws=new WebSocket(WS_URL);
+  ws.onopen=()=>{ document.getElementById('dot').classList.add('on'); document.getElementById('conn').textContent='Connecté'; };
+  ws.onclose=()=>{ document.getElementById('dot').classList.remove('on'); document.getElementById('conn').textContent='Déconnecté — reconnexion…'; setTimeout(connect,1500); };
+  ws.onerror=()=>{ document.getElementById('conn').textContent='Erreur réseau'; };
+  ws.onmessage=(ev)=>{
+    const msg=JSON.parse(ev.data);
+    if(msg.type==='error'){ document.getElementById('status').textContent=msg.message; return; }
+    if(msg.type==='welcome'){ myColor=msg.color; room=msg.room; render(); return; }
+    if(msg.room){ room=msg.room; render(); }
+  };
+}
+connect();
+</script>
+</body>
+</html>

@@ -30,6 +30,8 @@ class GameSidebar:
         self.time_increment = DEFAULT_TIME_INCREMENT
         self.time_control_id = "10_0"
         self.vs_ai = False
+        self.sounds_enabled = True
+        self.animations_enabled = True
         self.active_tab = "pieces"
         self.piece_scroll = 0
         self.board_scroll = 0
@@ -125,6 +127,21 @@ class GameSidebar:
                 x + (block_w - reset_w) // 2,
                 y + self.layout.s(8),
                 reset_w,
+                self.layout.s(40),
+            )
+            y += self.layout.s(56)
+            sound_w = self.layout.s(200)
+            self.display_buttons["toggle_sound"] = pygame.Rect(
+                x + (block_w - sound_w) // 2,
+                y,
+                sound_w,
+                self.layout.s(40),
+            )
+            y += self.layout.s(48)
+            self.display_buttons["toggle_anim"] = pygame.Rect(
+                x + (block_w - sound_w) // 2,
+                y,
+                sound_w,
                 self.layout.s(40),
             )
 

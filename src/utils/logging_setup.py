@@ -18,7 +18,7 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     file_handler = RotatingFileHandler(
-        LOGS / "chesspro.log",
+        LOGS / "chess_pro.log",
         maxBytes=1_000_000,
         backupCount=3,
         encoding="utf-8",

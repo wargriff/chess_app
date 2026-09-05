@@ -56,10 +56,11 @@ FONT_ASSETS = ASSETS / "fonts"
 BG_ASSETS = ASSETS / "backgrounds"
 
 DATA = RUNTIME / "data"
-SAVES = DATA / "saves"
+# Sauvegardes projet (dev) + data utilisateur (exe) — priorité racine/saves
+SAVES = (ROOT / "saves") if not _is_frozen() else (user_data_dir() / "saves")
 SETTINGS_DIR = DATA / "settings"
 CACHE = DATA / "cache"
-LOGS = DATA / "logs"
+LOGS = (ROOT / "logs") if not _is_frozen() else (user_data_dir() / "logs")
 
 STOCKFISH_DIR = RUNTIME / "stockfish"
 ENGINES_DIR = RUNTIME / "engines"  # legacy fallback

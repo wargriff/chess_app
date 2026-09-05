@@ -24,6 +24,7 @@ class AnalysisInfo:
     time_ms: int = 0
     pv: list[chess.Move] = field(default_factory=list)
     best_move: chess.Move | None = None
+    multipv_lines: list[dict] = field(default_factory=list)
 
     @property
     def eval_text(self) -> str:
@@ -95,16 +96,19 @@ class UCIClient:
     def configure_strength(self, elo: int, skill: int | None = None) -> None:
         if self._engine is None:
             return
-        if elo >= 1320:
-            opts = {
-                "UCI_LimitStrength": True,
-                "UCI_Elo": min(max(int(elo), 1320), 3190),
-            }
-        else:
-            level = skill if skill is not None else max(0, min(20, int(elo) // 60))
-            opts = {"UCI_LimitStrength": False, "Skill Level": int(level)}
-        logger.info("UCI configure strength elo=%s opts=%s", elo, opts)
+        from src.engine.engine_config import strength_for_elo, uci_options_for
+
+        strength = strength_for_elo(elo)
+        # skill override uniquement pour niveaux non limit-strength
+        if not strength.limit_strength and skill is not None:
+            from dataclasses import replace
+
+            strength = replace(strength, skill=skill)
+        opts = uci_options_for(strength)
+        logger.info("UCI configure strength elo=%s label=%s opts=%s", elo, strength.label, opts)
         self._engine.configure(opts)
+        # isready pour valider
+        self._engine.ping()
 
     def play(
         self,
@@ -161,33 +165,68 @@ class UCIClient:
         info = AnalysisInfo(fen=board.fen())
         if self._engine is None:
             return info
+        multipv = max(1, min(int(multipv), 5))
         limit = (
             chess.engine.Limit(time=movetime_ms / 1000.0)
             if movetime_ms
             else chess.engine.Limit(depth=depth)
         )
-        logger.info("UCI analyse fen=%s limit=%s", board.fen(), limit)
+        logger.info("UCI analyse fen=%s limit=%s multipv=%s", board.fen(), limit, multipv)
+        try:
+            self._engine.configure({"MultiPV": multipv})
+        except Exception:
+            pass
         raw = self._engine.analyse(board, limit, multipv=multipv)
-        if isinstance(raw, list):
-            raw = raw[0] if raw else {}
-        score = raw.get("score")
+        rows = raw if isinstance(raw, list) else [raw]
+        lines: list[dict] = []
+        for i, row in enumerate(rows):
+            if not row:
+                continue
+            score = row.get("score")
+            mate = None
+            cp = None
+            if score is not None:
+                pov = score.white()
+                if pov.is_mate():
+                    mate = pov.mate()
+                else:
+                    cp = pov.score()
+            pv_moves = list(row.get("pv") or [])
+            eval_txt = f"{'+' if (mate or 0) > 0 else '-'}M{abs(mate)}" if mate is not None else (
+                f"{(cp or 0) / 100:+.2f}" if cp is not None else "—"
+            )
+            lines.append(
+                {
+                    "multipv": i + 1,
+                    "eval": eval_txt,
+                    "score_cp": cp,
+                    "mate": mate,
+                    "depth": int(row.get("depth") or 0),
+                    "pv_uci": [m.uci() for m in pv_moves],
+                    "best_move": pv_moves[0].uci() if pv_moves else None,
+                }
+            )
+        info.multipv_lines = lines
+        primary = rows[0] if rows else {}
+        score = primary.get("score")
         if score is not None:
             pov = score.white()
             if pov.is_mate():
                 info.mate = pov.mate()
             else:
                 info.score_cp = pov.score()
-        info.depth = int(raw.get("depth") or 0)
-        info.nodes = int(raw.get("nodes") or 0)
-        info.nps = int(raw.get("nps") or 0)
-        info.time_ms = int((raw.get("time") or 0) * 1000)
-        pv = list(raw.get("pv") or [])
+        info.depth = int(primary.get("depth") or 0)
+        info.nodes = int(primary.get("nodes") or 0)
+        info.nps = int(primary.get("nps") or 0)
+        info.time_ms = int((primary.get("time") or 0) * 1000)
+        pv = list(primary.get("pv") or [])
         info.pv = pv
         info.best_move = pv[0] if pv else None
         logger.info(
-            "UCI info score=%s depth=%s best=%s",
+            "UCI info score=%s depth=%s best=%s lines=%s",
             info.eval_text,
             info.depth,
             info.best_move.uci() if info.best_move else None,
+            len(lines),
         )
         return info

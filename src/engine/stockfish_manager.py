@@ -13,6 +13,7 @@ from typing import Any
 
 import chess
 
+from src.engine.engine_config import strength_for_elo
 from src.engine.finder import resolve_stockfish
 from src.engine.uci_client import AnalysisInfo, UCIClient
 
@@ -52,12 +53,14 @@ class StockfishManager:
         self.binary: Path | None = None
         self.error: str | None = None
         self.thinking = False
+        self.analyzing = False
         self.last_analysis: AnalysisInfo | None = None
         self.last_bestmove: chess.Move | None = None
         self.elo = 1200
         self.skill: int | None = 8
         self.depth = 18
         self.movetime_ms = 800
+        self.strength_label = "Club"
         self._available = False
 
     @property
@@ -68,12 +71,22 @@ class StockfishManager:
     def engine_label(self) -> str:
         if not self.available:
             return "Stockfish introuvable"
-        return f"Stockfish ({self.elo} ELO)"
+        return f"Stockfish · {self.strength_label} ({self.elo})"
+
+    @property
+    def status_label(self) -> str:
+        if not self.available:
+            return self.error or "Hors ligne"
+        if self.thinking:
+            return "Réfléchit..."
+        if self.analyzing:
+            return "Analyse..."
+        return "Prêt"
 
     def start(self, custom_path: str | None = None, allow_download: bool = True) -> bool:
         binary = resolve_stockfish(custom_path, allow_download=allow_download)
         if binary is None:
-            self.error = "Stockfish introuvable. Selectionnez le fichier .exe dans Parametres."
+            self.error = "Stockfish introuvable. Placez stockfish.exe dans le dossier stockfish/."
             self._available = False
             logger.error(self.error)
             return False
@@ -115,13 +128,24 @@ class StockfishManager:
             return self.start()
         return self.set_binary(path)
 
-    def configure(self, elo: int, skill: int | None = None, depth: int = 18, movetime_ms: int = 800) -> None:
-        self.elo = int(elo)
-        self.skill = skill
+    def configure(self, elo: int, skill: int | None = None, depth: int = 18, movetime_ms: int | None = None) -> None:
+        strength = strength_for_elo(int(elo))
+        self.elo = strength.elo
+        self.skill = skill if skill is not None else strength.skill
         self.depth = int(depth)
-        self.movetime_ms = int(movetime_ms)
+        self.movetime_ms = int(movetime_ms if movetime_ms is not None else strength.movetime_ms)
+        self.strength_label = strength.label
+        logger.info(
+            "Configure niveau=%s elo=%s movetime=%sms",
+            self.strength_label,
+            self.elo,
+            self.movetime_ms,
+        )
         if self._available:
-            self._enqueue(EngineJob.RECONFIG, {"elo": self.elo, "skill": self.skill})
+            self._enqueue(
+                EngineJob.RECONFIG,
+                {"elo": self.elo, "skill": self.skill},
+            )
 
     def request_move(self, board: chess.Board) -> int:
         if not self._available:
@@ -131,22 +155,31 @@ class StockfishManager:
         self.thinking = True
         fen = board.fen()
         moves = [m.uci() for m in board.move_stack]
-        logger.info("Queue PLAY fen=%s moves=%s movetime=%sms", fen, moves, self.movetime_ms)
+        strength = strength_for_elo(self.elo)
+        depth = strength.depth
+        logger.info("Queue PLAY fen=%s moves=%s movetime=%sms depth=%s", fen, moves, self.movetime_ms, depth)
         return self._enqueue(
             EngineJob.PLAY,
-            {"fen": fen, "movetime_ms": self.movetime_ms, "depth": None},
+            {"fen": fen, "movetime_ms": self.movetime_ms, "depth": depth},
         )
 
-    def request_analysis(self, board: chess.Board, depth: int | None = None, movetime_ms: int | None = None) -> int:
+    def request_analysis(
+        self,
+        board: chess.Board,
+        depth: int | None = None,
+        movetime_ms: int | None = None,
+        multipv: int = 1,
+    ) -> int:
         if not self._available:
             return -1
-        self.thinking = True
+        self.analyzing = True
         return self._enqueue(
             EngineJob.ANALYSE,
             {
                 "fen": board.fen(),
                 "depth": depth or self.depth,
                 "movetime_ms": movetime_ms,
+                "multipv": max(1, min(int(multipv), 5)),
             },
         )
 
@@ -168,8 +201,10 @@ class StockfishManager:
                 self.last_analysis = result.analysis
             if result.move is not None:
                 self.last_bestmove = result.move
-            if result.kind in (EngineJob.PLAY, EngineJob.ANALYSE):
+            if result.kind == EngineJob.PLAY:
                 self.thinking = False
+            if result.kind == EngineJob.ANALYSE:
+                self.analyzing = False
             out.append(result)
         return out
 
@@ -242,6 +277,7 @@ class StockfishManager:
                         board,
                         depth=int(payload.get("depth") or self.depth),
                         movetime_ms=payload.get("movetime_ms"),
+                        multipv=int(payload.get("multipv") or 1),
                     )
                     self._results.put(
                         EngineResult(

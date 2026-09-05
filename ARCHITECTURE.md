@@ -5,31 +5,46 @@
 ```
 chess_app/
 ├── main.py                 # Point d'entrée mince
+├── LANCER.bat / BUILD.bat  # Lancement & build Windows
 ├── src/
 │   ├── app.py              # Boucle applicative / contrôleur
 │   ├── core/               # Règles, plateau, session, horloge
 │   ├── engine/             # Stockfish UCI asynchrone
 │   ├── ui/                 # Pygame UI (D4)
-│   ├── services/           # Assets, audio, settings, saves
+│   ├── services/           # Assets, audio, settings, saves JSON
 │   ├── models/             # Données / version / settings
 │   └── utils/              # Paths, logging, helpers
 ├── assets/                 # Graphismes + sons
-├── data/                   # saves, settings, cache, logs (runtime)
-├── stockfish/              # Binaire moteur (runtime)
+├── saves/                  # Sauvegardes JSON de parties
+├── logs/                   # chess_pro.log
+├── stockfish/              # Binaire moteur
 ├── tests/
-├── scripts/ + tools/       # Build / maintenance
-└── config/, core/, rendering/, systems/  # Shims compat
+├── scripts/test_all.py
+├── tools/                  # Build / maintenance
+└── config/, core/, rendering/, systems/  # Shims compat (outils legacy)
 ```
+
+## Frontend
+
+Deux interfaces :
+
+1. **Flutter** (recommandé) — `frontend/flutter_app/` + **port API 3848**  
+   Lancer via `FLUTTER.bat` (démarre backend + UI). Voir `docs/FLUTTER_STACK.md`.
+2. **Pygame** (legacy) — `main.py` / `LANCER.bat` — conservé.
+
+> Note : le port **8765** / **3847** sont souvent déjà pris ; Chess Pro D4 utilise **3848**.
 
 ## Flux
 
-1. `main.py` ajoute la racine au `sys.path` et appelle `src.app.run()`.
-2. `ChessApp` charge settings, bootstrap assets, démarre Stockfish en thread UCI.
-3. Les coups UI passent par `GameSession` (python-chess) ; le moteur via `StockfishManager` (queue + worker).
-4. Rendu : `ChessRenderer` + `InfoPanel` + sidebar + HUD.
+1. `main.py` → `src.app.run()`.
+2. `ChessApp` charge settings, bootstrap, démarre Stockfish (thread UCI).
+3. Coups via `GameSession` (python-chess) ; moteur via `StockfishManager`.
+4. Sauvegarde JSON complète (`SaveManager.save_game`) + PGN secondaire.
 
-## Stockfish
+## UI shell (refonte)
 
-- Détection : `STOCKFISH_PATH`, `stockfish/`, `engines/`, PATH.
-- Si absent : téléchargement SF 17.1 (Windows) ou message d'erreur clair.
-- Jamais d'appel UCI bloquant sur le thread UI.
+- Header : marque adaptative + statut Stockfish (● en ligne / hors ligne)
+- Navigation : Partie | Analyse | Historique | Sauvegardes | Stats | Paramètres
+- Actions bas : uniquement Nouvelle partie / Annuler / Refaire (onglet Partie)
+- Breakpoints : XS/SM/MD/LG/XL — plateau prioritaire, panneaux conditionnels
+- Décorations (particules, ornements, brouillard) : retirées

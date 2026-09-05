@@ -10,7 +10,7 @@ FPS = 60
 AI_DEPTH = 3
 DEFAULT_ELO = 1200
 DEFAULT_BOARD_THEME = "sanctum"
-DEFAULT_PIECE_SET = "california"
+DEFAULT_PIECE_SET = "cburnett"
 DEFAULT_TIME_MINUTES = 10
 DEFAULT_TIME_INCREMENT = 0
 MOVE_ANIM_MS = 240
@@ -30,11 +30,11 @@ MOVE_HINT_COLOR = (220, 170, 60, 95)
 CHECK_COLOR = (200, 40, 45, 140)
 
 SIDEBAR_TABS = [
-    {"id": "pieces", "label": "Pièces", "icon": "♟"},
-    {"id": "board", "label": "Plateau", "icon": "▦"},
-    {"id": "time", "label": "Chrono", "icon": "⏱"},
-    {"id": "display", "label": "Vue", "icon": "◎"},
-    {"id": "elo", "label": "IA", "icon": "⚡"},
+    {"id": "pieces", "label": "PIÈCES", "icon": ""},
+    {"id": "board", "label": "PLATEAU", "icon": ""},
+    {"id": "time", "label": "CHRONO", "icon": ""},
+    {"id": "display", "label": "VUE", "icon": ""},
+    {"id": "elo", "label": "IA", "icon": ""},
 ]
 
 TIME_CONTROLS = [
@@ -61,44 +61,19 @@ ELO_LEVELS = [
     {"label": "Grand Maître", "elo": 2400, "skill": None},
 ]
 
+# Sets principaux affichés dans Personnalisation (pas 20 options d'un coup)
 PIECE_SETS = [
+    {"id": "cburnett", "label": "Classique", "desc": "Staunton Lichess"},
+    {"id": "merida", "label": "Moderne", "desc": "Tournoi net"},
+    {"id": "maestro", "label": "Élégant", "desc": "Fin et précis"},
+    {"id": "alpha", "label": "Minimaliste", "desc": "Épuré"},
+    {"id": "fantasy", "label": "D4", "desc": "Dark fantasy"},
+    # Extra (scroll) — styles secondaires
     {"id": "california", "label": "Neo", "desc": "Style chess.com"},
-    {"id": "cburnett", "label": "Classique", "desc": "Lichess standard"},
-    {"id": "merida", "label": "Merida", "desc": "Tournoi"},
-    {"id": "alpha", "label": "Alpha", "desc": "Minimaliste"},
-    {"id": "maestro", "label": "Maestro", "desc": "Elegant moderne"},
     {"id": "cardinal", "label": "Cardinal", "desc": "Contour net"},
-    {"id": "dubrovny", "label": "Dubrovny", "desc": "Style russe"},
-    {"id": "fresca", "label": "Fresca", "desc": "Leger et clair"},
-    {"id": "gioco", "label": "Gioco", "desc": "Italien"},
-    {"id": "governor", "label": "Governor", "desc": "Autoritaire"},
-    {"id": "kosal", "label": "Kosal", "desc": "Khmer classique"},
-    {"id": "leipzig", "label": "Leipzig", "desc": "Allemand"},
     {"id": "staunty", "label": "Staunty", "desc": "Staunton neo"},
-    {"id": "spatial", "label": "Spatial", "desc": "Effet 3D"},
-    {"id": "tatiana", "label": "Tatiana", "desc": "Feminin elegant"},
-    {"id": "companion", "label": "Companion", "desc": "Arrondi"},
-    {"id": "chessnut", "label": "Chessnut", "desc": "Bois sculpte"},
-    {"id": "caliente", "label": "Caliente", "desc": "Chaleureux"},
-    {"id": "fantasy", "label": "Fantasy", "desc": "Medieval"},
-    {"id": "celtic", "label": "Celtic", "desc": "Celte"},
-    {"id": "horsey", "label": "Horsey", "desc": "Ludique"},
-    {"id": "riohacha", "label": "Riohacha", "desc": "Colombien"},
-    {"id": "pirouetti", "label": "Pirouetti", "desc": "Artistique"},
-    {"id": "icpieces", "label": "IC", "desc": "International"},
-    {"id": "chess7", "label": "Chess7", "desc": "Moderne epure"},
-    {"id": "cooke", "label": "Cooke", "desc": "Britannique"},
-    {"id": "firi", "label": "Firi", "desc": "Fin et leger"},
-    {"id": "letter", "label": "Lettres", "desc": "Typographie"},
-    {"id": "mpchess", "label": "MP", "desc": "Multi-plateforme"},
-    {"id": "pixel", "label": "Pixel", "desc": "Retro 8-bit"},
-    {"id": "reillycraig", "label": "Reilly", "desc": "Classique US"},
-    {"id": "shapes", "label": "Formes", "desc": "Geometrique"},
-    {"id": "rhosgfx", "label": "Rhos", "desc": "Artistique net"},
-    {"id": "anarcandy", "label": "Anarcandy", "desc": "Pop colore"},
-    {"id": "xkcd", "label": "XKCD", "desc": "Comic"},
-    {"id": "totoy", "label": "Totoy", "desc": "Cartoon"},
-    {"id": "shahi-ivory-brown", "label": "Shahi", "desc": "Ivoire oriental"},
+    {"id": "gioco", "label": "Gioco", "desc": "Italien"},
+    {"id": "leipzig", "label": "Leipzig", "desc": "Allemand"},
 ]
 
 # Themes plateau (id = dossier assets/board/<id>) — labels pro demandés
