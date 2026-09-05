@@ -1,2 +1,6 @@
+# Chess Pro D4 — dépendances
 python-chess>=1.11
 pygame>=2.5
+pyinstaller>=6.0
+pymupdf>=1.24
+pytest>=8.0

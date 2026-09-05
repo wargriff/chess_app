@@ -1,0 +1,1 @@
+"""Couche moteur Stockfish / UCI."""

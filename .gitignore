@@ -8,3 +8,6 @@ Thumbs.db
 stockfish/
 stockfish.exe
 *.log
+build/
+dist/
+*.spec
